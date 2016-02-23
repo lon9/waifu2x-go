@@ -1,5 +1,12 @@
 package waifu2x
 
+/*
+This software is waifu2x image reconstructor written in Go.
+Model file downloaded from https://marcan.st/transf/scale2.0x_model.json
+MIT License https://github.com/nagadomi/waifu2x/blob/master/LICENSE
+Reference: https://github.com/nagadomi/waifu2x, https://marcan.st/transf/waifu2x.py
+*/
+
 import (
 	"encoding/json"
 	"fmt"

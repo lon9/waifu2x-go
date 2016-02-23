@@ -12,7 +12,7 @@ func main() {
 	opts := &Options{}
 	parser := flags.NewParser(opts, flags.Default)
 	parser.Name = "waifu2x-go"
-	parser.Usage = "waifu2x-go -i[--input] <input-image-path> -o[--output] <output-image-path> -m[--model] <model-path>"
+	parser.Usage = "-i[--input] <input-image-path> -o[--output] <output-image-path> -m[--model] <model-path> -c[--cpu] <the-number-of-cpus>"
 	_, err := parser.Parse()
 	if err != nil {
 		os.Exit(1)
