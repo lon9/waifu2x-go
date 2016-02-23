@@ -4,6 +4,7 @@ import (
 	"github.com/Rompei/waifu2x-go/waifu2x"
 	"github.com/jessevdk/go-flags"
 	"os"
+	"runtime"
 )
 
 func main() {
@@ -23,6 +24,15 @@ func main() {
 		optImageName = "dst.png"
 	}
 	modelName := opts.ModelName
+	numCPU := opts.CPU
+	cpus := runtime.NumCPU()
+	if numCPU != 0 {
+		if numCPU > cpus {
+			runtime.GOMAXPROCS(cpus)
+		} else {
+			runtime.GOMAXPROCS(numCPU)
+		}
+	}
 
 	w, err := waifu2x.NewWaifu2x(modelName, iptImageName, optImageName)
 	if err != nil {

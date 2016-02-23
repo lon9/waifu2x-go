@@ -303,10 +303,14 @@ func (w *Waifu2x) Exec() {
 			b := m.Bias[i]
 			wgt := m.Weight[i]
 			fj := int(math.Min(float64(len(planes)), float64(len(wgt))))
+			resCh := make(chan *mat64.Dense, fj)
 			for j := 0; j < fj; j++ {
-				ip := planes[j]
-				kernel := wgt[j]
-				p := w.correlate(&ip, kernel)
+				go func(plane *mat64.Dense, kernel [][]float64, resCh chan *mat64.Dense) {
+					resCh <- w.correlate(plane, kernel)
+				}(&planes[j], wgt[j], resCh)
+			}
+			for k := 0; k < fj; k++ {
+				p := <-resCh
 				if partial == nil {
 					partial = p
 				} else {
