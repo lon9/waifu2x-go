@@ -29,7 +29,7 @@ type Model struct {
 	KW           int             `json:"kW"`
 	KH           int             `json:"kH"`
 	Bias         []float64       `json:"bias"`
-	NInputPlace  int             `json:"nInputPlane"`
+	NInputPlane  int             `json:"nInputPlane"`
 }
 
 // Waifu2x is structure of Waifu2x.
@@ -299,7 +299,7 @@ func (w *Waifu2x) Exec() {
 	progress := 0.0
 	count := 0.0
 	for _, v := range w.models {
-		count += float64(v.NInputPlace * v.NOutputPlane)
+		count += float64(v.NInputPlane * v.NOutputPlane)
 	}
 
 	for _, m := range w.models {
