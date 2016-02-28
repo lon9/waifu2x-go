@@ -224,11 +224,8 @@ func (w *Waifu2x) correlate(im *mat64.Dense, f [][]float64) *mat64.Dense {
 	newCols := c - 2
 	newVec := make([]float64, newRows*newCols)
 	idx := 0
-	for i := 0; i < r; i++ {
-		for j := 0; j < c; j++ {
-			if i == 0 || j == 0 || i == r-1 || j == c-1 {
-				continue
-			}
+	for i := 1; i < r-1; i++ {
+		for j := 1; j < c-1; j++ {
 			newVec[idx] = w.calcConv(i, j, im, f)
 			idx++
 		}
