@@ -34,7 +34,7 @@ func main() {
 		}
 	}
 
-	w, err := waifu2x.NewWaifu2x(modelName, iptImageName, optImageName)
+	w, err := waifu2x.NewWaifu2x(modelName, iptImageName)
 	if err != nil {
 		panic(err)
 	}

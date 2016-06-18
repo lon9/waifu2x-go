@@ -10,7 +10,7 @@ Reference: https://github.com/nagadomi/waifu2x, https://marcan.st/transf/waifu2x
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gonum/matrix/mat64"
+	"github.com/Rompei/mat"
 	"github.com/nfnt/resize"
 	"image"
 	"image/color"
@@ -40,7 +40,7 @@ type Waifu2x struct {
 }
 
 // NewWaifu2x is constructor of Waifu2x.
-func NewWaifu2x(modelPath, inputImgPath, outputImagePath string) (*Waifu2x, error) {
+func NewWaifu2x(modelPath, inputImgPath string) (*Waifu2x, error) {
 	var w Waifu2x
 	if err := w.loadModel(modelPath); err != nil {
 		return nil, err
@@ -103,177 +103,36 @@ func (w *Waifu2x) SaveImage(name string) error {
 	return err
 }
 
-func (w *Waifu2x) convertYCbCr(img image.Image) []color.YCbCr {
+func (w *Waifu2x) convertYCbCr(img image.Image) [][]color.YCbCr {
 
 	// Convert color model from RBGA to YCbCr.
 
 	colSize := img.Bounds().Max.X
 	rowSize := img.Bounds().Max.Y
-	res := make([]color.YCbCr, rowSize*colSize)
-	idx := 0
+	res := make([][]color.YCbCr, rowSize)
 	for y := 0; y < rowSize; y++ {
+		res[y] = make([]color.YCbCr, colSize)
 		for x := 0; x < colSize; x++ {
 			r, g, b, _ := img.At(x, y).RGBA()
 			Y, Cb, Cr := color.RGBToYCbCr(uint8(r), uint8(g), uint8(b))
-			res[idx] = color.YCbCr{Y, Cb, Cr}
-			idx++
+			res[y][x] = color.YCbCr{Y, Cb, Cr}
 		}
 	}
 	return res
 }
 
-func (w *Waifu2x) extY(cl []color.YCbCr) []float64 {
+func (w *Waifu2x) extY(cl [][]color.YCbCr) [][]float64 {
 
 	// Extract Y value of YCbCr.
 
-	res := make([]float64, len(cl))
-	for i, c := range cl {
-		res[i] = float64(c.Y)
+	res := make([][]float64, len(cl))
+	for i := range cl {
+		res[i] = make([]float64, len(cl[i]))
+		for j := range cl[i] {
+			res[i][j] = float64(cl[i][j].Y)
+		}
 	}
 	return res
-}
-
-func (w *Waifu2x) pad(im *mat64.Dense, padding int) *mat64.Dense {
-
-	// Add padding to matrix.
-
-	r, c := im.Dims()
-	newRows := r + padding*2
-	newCols := c + padding*2
-	newVec := make([]float64, newRows*newCols)
-	topLeft := im.At(0, 0) / 255.0
-	topRight := im.At(0, c-1) / 255.0
-	bottomLeft := im.At(r-1, 0) / 255.0
-	bottomRight := im.At(r-1, c-1) / 255.0
-	idx := 0
-	for i := 0; i < padding; i++ {
-		for j := 0; j < newCols; j++ {
-			if j < padding {
-				newVec[idx] = topLeft
-				idx++
-				continue
-			} else if j >= c {
-				newVec[idx] = topRight
-				idx++
-				continue
-			}
-			newVec[idx] = im.At(padding, j) / 255.0
-			idx++
-		}
-	}
-	row := 0
-	for i := padding; i < r; i++ {
-		for j := 0; j < newCols; j++ {
-			if j < padding {
-				newVec[idx] = im.At(row, 0) / 255.0
-				idx++
-				continue
-			} else if j >= c {
-				newVec[idx] = im.At(row, c-1) / 255.0
-				idx++
-				continue
-			}
-			newVec[idx] = im.At(i, j) / 255.0
-			idx++
-		}
-		row++
-	}
-
-	for i := r; i < newRows; i++ {
-		for j := 0; j < newCols; j++ {
-			if j < padding {
-				newVec[idx] = bottomLeft
-				idx++
-				continue
-			} else if j >= c {
-				newVec[idx] = bottomRight
-				idx++
-				continue
-			}
-			newVec[idx] = im.At(r-1, j) / 255.0
-			idx++
-		}
-	}
-	return mat64.NewDense(newRows, newCols, newVec)
-}
-
-func (w *Waifu2x) calcConv(x, y int, im *mat64.Dense, f [][]float64) float64 {
-
-	// Caluculate convolved value of the point.
-
-	res := 0.0
-	res += im.At(x-1, y-1) * f[0][0]
-	res += im.At(x, y-1) * f[0][1]
-	res += im.At(x+1, y-1) * f[0][2]
-	res += im.At(x-1, y) * f[1][0]
-	res += im.At(x, y) * f[1][1]
-	res += im.At(x+1, y) * f[1][2]
-	res += im.At(x-1, y+1) * f[2][0]
-	res += im.At(x, y+1) * f[2][1]
-	res += im.At(x+1, y+1) * f[2][2]
-
-	return res
-}
-
-func (w *Waifu2x) correlate(im *mat64.Dense, f [][]float64) *mat64.Dense {
-
-	// Convolve matrix.
-
-	r, c := im.Dims()
-	newRows := r - 2
-	newCols := c - 2
-	newVec := make([]float64, newRows*newCols)
-	idx := 0
-	for i := 1; i < r-1; i++ {
-		for j := 1; j < c-1; j++ {
-			newVec[idx] = w.calcConv(i, j, im, f)
-			idx++
-		}
-	}
-
-	return mat64.NewDense(newRows, newCols, newVec)
-}
-
-func (w *Waifu2x) broadcastMat(mat *mat64.Dense, n float64, f func(a, b float64) float64) *mat64.Dense {
-
-	// Do operation to bitwise of the matrix.
-
-	r, c := mat.Dims()
-	newVec := make([]float64, r*c)
-	idx := 0
-	for y := 0; y < r; y++ {
-		for x := 0; x < c; x++ {
-			newVec[idx] = f(mat.At(y, x), n)
-			idx++
-		}
-	}
-	return mat64.NewDense(r, c, newVec)
-}
-
-func (w *Waifu2x) broadcastVec(vec []float64, n float64, f func(a, b float64) float64) {
-	for i, v := range vec {
-		vec[i] = f(v, n)
-	}
-}
-
-func (w *Waifu2x) clip(im *mat64.Dense, start, end float64) []float64 {
-	r, c := im.Dims()
-	newVec := make([]float64, r*c)
-	idx := 0
-	for y := 0; y < r; y++ {
-		for x := 0; x < c; x++ {
-			e := im.At(y, x)
-			if e < start {
-				newVec[idx] = start
-			} else if e > end {
-				newVec[idx] = end
-			} else {
-				newVec[idx] = e
-			}
-			idx++
-		}
-	}
-	return newVec
 }
 
 // Exec execute reconstructing.
@@ -284,13 +143,14 @@ func (w *Waifu2x) Exec() {
 
 	width := w.src.Bounds().Max.X
 	height := w.src.Bounds().Max.Y
-	m := mat64.NewDense(height, width, w.extY(c))
+	m := matrix.NewMatrix(w.extY(c))
 
 	// Padding.
-	padded := w.pad(m, len(w.models))
+	padded := m.Pad(uint(len(w.models)), matrix.Edge)
+	padded = padded.BroadcastDiv(255.0)
 
 	// Prepare planes.
-	var planes = []mat64.Dense{*padded}
+	var planes = []matrix.Matrix{*padded}
 
 	// Show progressing.
 	progress := 0.0
@@ -301,37 +161,50 @@ func (w *Waifu2x) Exec() {
 
 	for _, m := range w.models {
 		fi := int(math.Min(float64(len(m.Bias)), float64(len(m.Weight))))
-		var oPlanes []mat64.Dense
+		var oPlanes []matrix.Matrix
 		for i := 0; i < fi; i++ {
-			var partial *mat64.Dense
+			var partial *matrix.Matrix
 			b := m.Bias[i]
 			wgt := m.Weight[i]
 			fj := int(math.Min(float64(len(planes)), float64(len(wgt))))
-			resCh := make(chan *mat64.Dense, fj)
+			resCh := make(chan *matrix.Matrix, fj)
 			for j := 0; j < fj; j++ {
-				go func(plane *mat64.Dense, kernel [][]float64, resCh chan *mat64.Dense) {
-					resCh <- w.correlate(plane, kernel)
-				}(&planes[j], wgt[j], resCh)
+				go func(plane *matrix.Matrix, kernel *matrix.Matrix, resCh chan *matrix.Matrix) {
+					m, err := plane.Convolve2d(kernel)
+					if err != nil {
+						panic(err)
+					}
+					resCh <- m
+				}(&planes[j], matrix.NewMatrix(wgt[j]), resCh)
 			}
 			for k := 0; k < fj; k++ {
 				p := <-resCh
 				if partial == nil {
 					partial = p
 				} else {
-					partial.Add(partial, p)
+					var err error
+					partial, err = matrix.Add(partial, p)
+					if err != nil {
+						panic(err)
+					}
 				}
 				progress++
 				fmt.Fprintf(os.Stderr, "\r%.1f%%...", 100*progress/count)
 			}
-			partial = w.broadcastMat(partial, b, add)
+			partial = partial.BroadcastAdd(b)
 			oPlanes = append(oPlanes, *partial)
 		}
-		planes = make([]mat64.Dense, len(oPlanes))
+
+		// LeakyReLU
+		planes = make([]matrix.Matrix, len(oPlanes))
 		for i, v := range oPlanes {
-			max := w.broadcastMat(&v, 0, maximum)
-			min := w.broadcastMat(&v, 0, minimum)
-			part := w.broadcastMat(min, 0.1, mul)
-			max.Add(max, part)
+			max := v.BroadcastFunc(maximum, 0.0)
+			min := v.BroadcastFunc(minimum, 0.0)
+			part := min.BroadcastMul(0.1)
+			max, err := matrix.Add(max, part)
+			if err != nil {
+				panic(err)
+			}
 			planes[i] = *max
 		}
 	}
@@ -344,46 +217,40 @@ func (w *Waifu2x) Exec() {
 	}
 
 	// Clipping
-	vec := w.clip(&planes[0], 0.0, 1.0)
-	w.broadcastVec(vec, 255.0, mul)
+	fmt.Println(planes[0])
+	res := planes[0].Clip(0.0, 1.0)
+	res = res.BroadcastMul(255.0)
 
-	for i, v := range vec {
-		c[i].Y = uint8(v)
+	for i := range res.M {
+		for j := range res.M[i] {
+			c[i][j].Y = uint8(res.M[i][j])
+		}
 	}
 
-	idx := 0
 	w.dst = image.NewRGBA(w.src.Bounds())
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			w.dst.Set(x, y, c[idx])
-			idx++
+			w.dst.Set(x, y, c[y][x])
 		}
 	}
 }
 
-/* Helper functions */
+func maximum(a float64, i ...interface{}) float64 {
+	arg := i[0].(float64)
+	if a > arg {
+		return a
+	}
+	return arg
+}
+
+func minimum(a float64, i ...interface{}) float64 {
+	arg := i[0].(float64)
+	if a < arg {
+		return a
+	}
+	return arg
+}
 
 func mul(a, b float64) float64 {
 	return a * b
-}
-
-func div(a, b float64) float64 {
-	return a / b
-}
-
-func add(a, b float64) float64 {
-	return a + b
-}
-
-func maximum(a, b float64) float64 {
-	if a >= b {
-		return a
-	}
-	return b
-}
-func minimum(a, b float64) float64 {
-	if a <= b {
-		return a
-	}
-	return b
 }
