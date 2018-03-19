@@ -10,7 +10,7 @@ Reference: https://github.com/nagadomi/waifu2x, https://marcan.st/transf/waifu2x
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Rompei/mat"
+	"github.com/lon9/mat"
 	"github.com/nfnt/resize"
 	"image"
 	"image/color"
@@ -24,11 +24,11 @@ import (
 
 // Model of this program.
 type Model struct {
-	Weight       [][][][]float64 `json:"weight"`
+	Weight       [][][][]float32 `json:"weight"`
 	NOutputPlane int             `json:"nOutputPlane"`
 	KW           int             `json:"kW"`
 	KH           int             `json:"kH"`
-	Bias         []float64       `json:"bias"`
+	Bias         []float32       `json:"bias"`
 	NInputPlane  int             `json:"nInputPlane"`
 }
 
@@ -121,15 +121,15 @@ func (w *Waifu2x) convertYCbCr(img image.Image) [][]color.YCbCr {
 	return res
 }
 
-func (w *Waifu2x) extY(cl [][]color.YCbCr) [][]float64 {
+func (w *Waifu2x) extY(cl [][]color.YCbCr) [][]float32 {
 
 	// Extract Y value of YCbCr.
 
-	res := make([][]float64, len(cl))
+	res := make([][]float32, len(cl))
 	for i := range cl {
-		res[i] = make([]float64, len(cl[i]))
+		res[i] = make([]float32, len(cl[i]))
 		for j := range cl[i] {
-			res[i][j] = float64(cl[i][j].Y)
+			res[i][j] = float32(cl[i][j].Y)
 		}
 	}
 	return res
@@ -143,14 +143,14 @@ func (w *Waifu2x) Exec() {
 
 	width := w.src.Bounds().Max.X
 	height := w.src.Bounds().Max.Y
-	m := matrix.NewMatrix(w.extY(c))
+	m := mat.NewMatrix(w.extY(c))
 
 	// Padding.
-	padded := m.Pad(uint(len(w.models)), matrix.Edge)
+	padded := m.Pad(uint(len(w.models)), mat.Edge)
 	padded = padded.BroadcastDiv(255.0)
 
 	// Prepare planes.
-	var planes = []matrix.Matrix{*padded}
+	var planes = []mat.Matrix{*padded}
 
 	// Show progressing.
 	progress := 0.0
@@ -161,21 +161,21 @@ func (w *Waifu2x) Exec() {
 
 	for _, m := range w.models {
 		fi := int(math.Min(float64(len(m.Bias)), float64(len(m.Weight))))
-		var oPlanes []matrix.Matrix
+		var oPlanes []mat.Matrix
 		for i := 0; i < fi; i++ {
-			var partial *matrix.Matrix
+			var partial *mat.Matrix
 			b := m.Bias[i]
 			wgt := m.Weight[i]
 			fj := int(math.Min(float64(len(planes)), float64(len(wgt))))
-			resCh := make(chan *matrix.Matrix, fj)
+			resCh := make(chan *mat.Matrix, fj)
 			for j := 0; j < fj; j++ {
-				go func(plane *matrix.Matrix, kernel *matrix.Matrix, resCh chan *matrix.Matrix) {
-					m, err := plane.Convolve2d(kernel)
+				go func(plane *mat.Matrix, kernel *mat.Matrix, resCh chan *mat.Matrix) {
+					m, err := plane.Convolve2d(kernel, 1, 0, mat.Edge)
 					if err != nil {
 						panic(err)
 					}
 					resCh <- m
-				}(&planes[j], matrix.NewMatrix(wgt[j]), resCh)
+				}(&planes[j], mat.NewMatrix(wgt[j]), resCh)
 			}
 			for k := 0; k < fj; k++ {
 				p := <-resCh
@@ -183,7 +183,7 @@ func (w *Waifu2x) Exec() {
 					partial = p
 				} else {
 					var err error
-					partial, err = matrix.Add(partial, p)
+					partial, err = mat.Add(partial, p)
 					if err != nil {
 						panic(err)
 					}
@@ -196,12 +196,12 @@ func (w *Waifu2x) Exec() {
 		}
 
 		// LeakyReLU
-		planes = make([]matrix.Matrix, len(oPlanes))
+		planes = make([]mat.Matrix, len(oPlanes))
 		for i, v := range oPlanes {
-			max := v.BroadcastFunc(maximum, 0.0)
-			min := v.BroadcastFunc(minimum, 0.0)
+			max := v.BroadcastFunc(maximum, float32(0.0))
+			min := v.BroadcastFunc(minimum, float32(0.0))
 			part := min.BroadcastMul(0.1)
-			max, err := matrix.Add(max, part)
+			max, err := mat.Add(max, part)
 			if err != nil {
 				panic(err)
 			}
@@ -217,7 +217,7 @@ func (w *Waifu2x) Exec() {
 	}
 
 	// Clipping
-	fmt.Println(planes[0])
+	//fmt.Println(planes[0])
 	res := planes[0].Clip(0.0, 1.0)
 	res = res.BroadcastMul(255.0)
 
@@ -235,22 +235,22 @@ func (w *Waifu2x) Exec() {
 	}
 }
 
-func maximum(a float64, i ...interface{}) float64 {
-	arg := i[0].(float64)
+func maximum(a float32, i ...interface{}) float32 {
+	arg := i[0].(float32)
 	if a > arg {
 		return a
 	}
 	return arg
 }
 
-func minimum(a float64, i ...interface{}) float64 {
-	arg := i[0].(float64)
+func minimum(a float32, i ...interface{}) float32 {
+	arg := i[0].(float32)
 	if a < arg {
 		return a
 	}
 	return arg
 }
 
-func mul(a, b float64) float64 {
+func mul(a, b float32) float32 {
 	return a * b
 }

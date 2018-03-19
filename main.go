@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/Rompei/waifu2x-go/waifu2x"
 	"github.com/jessevdk/go-flags"
+	"github.com/lon9/waifu2x-go/waifu2x"
 	"os"
 	"runtime"
 )
