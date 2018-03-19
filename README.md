@@ -11,11 +11,11 @@ Usage:
 Application Options:
   -i, --input=  Input image file path
   -o, --output= Output image file path
-  -m, --model=  Path of model
-  -c, --cpu=    The number of CPUs used to calcurate
+  -m, --model=  Path of the model
+  -c, --cpu=    The number of CPUs used to calculate
 
 Help Options:
-  -h, --help    Show this help message
+  -h, --help
 ```
 
 ## LICENSE
