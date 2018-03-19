@@ -1,8 +1,8 @@
-#waifu2x-go
+# waifu2x-go
 
 waifu2x written in Golang.
 
-##USAGE
+## USAGE
 
 ```bash
 Usage:
@@ -18,6 +18,6 @@ Help Options:
   -h, --help    Show this help message
 ```
 
-##LICENSE
+## LICENSE
 
 [MIT License](https://opensource.org/licenses/MIT)
